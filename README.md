@@ -13,3 +13,5 @@ ____
     * static<--存放静态文件
     * templates<--存放模板文件
   *  LICENSE<--代码LICENSE
+
+> bingo
