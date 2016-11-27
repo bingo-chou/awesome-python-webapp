@@ -1,15 +1,24 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 
+import markdown2
 import os,re,time,base64,hashlib
 import logging;logging.basicConfig(level=logging.DEBUG)
 from transwarp.web import get,view,post,ctx,interceptor,seeother,notfound
-from apis import api,APIError,APIValueError,APIPermissionError,APIResourceNotFoundError
+from apis import api,Page,APIError,APIValueError,APIPermissionError,APIResourceNotFoundError
 from models import User,Blog,Comment
 from config import configs
 
 _COOKIE_NAME='awesession'
 _COOKIE_KEY=configs.session.secret
+
+def _get_page_index():
+	page_index=1
+	try:
+		page_index=int(ctx.request.get('page','1'))
+	except ValueError:
+		pass
+	return page_index
 
 def make_signed_cookie(id,password,max_age):
 	#以id-password-expires形式生成cookie
@@ -58,12 +67,19 @@ def manage_interceptor(next):
 		return next()
 	raise seeother('/signin')
 
+def _get_blogs_by_page():
+	total=Blog.count_all()
+	logging.info('-----------------------enter---------------------------')
+	#logging.info(total)
+	page=Page(total,_get_page_index())
+	blogs=Blog.find_by('order by created_at desc limit ?,?',page.offset,page.limit)
+	return blogs,page
+
 @view('blogs.html')
 @get('/')
 def index():
 	blogs=Blog.find_all()
-	user=User.find_first('where email=?','admin@example.com')
-	return dict(blogs=blogs,user=user)
+	return dict(blogs=blogs,user=ctx.request.user)
 
 @view('signin.html')
 @get('/signin')
@@ -128,11 +144,32 @@ def register_user():
 @get('/register')
 def register():
 	return dict()
+
+@view('manage_blog_list.html')
+@get('/manage/blogs')
+def manage_blogs():
+	return dict(page_index=_get_page_index(),user=ctx.request.user)
+
 @view('manage_blog_edit.html')
 @get('/manage/blogs/create')
 def manage_blogs_create():
-	logging.info(dir(ctx.request))
+	#logging.info(dir(ctx.request))
 	return dict(id=None,action='/api/blogs',redirect='/manage/blogs',user=ctx.request.user)
+
+@api
+@get('/api/blogs')
+def api_get_blogs():
+	logging.info('------------blogs-----------')
+	format=ctx.request.get('format','')
+	#logging.info('format:%s'%format)
+	blogs,page=_get_blogs_by_page()
+	#logging.info(blogs)
+	#logging.info(page)
+	if format=='html':
+		for blog in blogs:
+			blog.content=markdown2.markdown(blog.content)
+	return dict(blogs=blogs,page=page)
+
 
 @api
 @post('/api/blogs')
