@@ -380,7 +380,7 @@ class Model(dict):
         """
         执行 select count(pk) from table语句，返回一个数值
         """
-        return db.select('select count(`%s`) from `%s`' % (cls.__primay_key__.name, cls.__table__))
+        return db.select_int('select count(`%s`) from `%s`' % (cls.__primay_key__.name, cls.__table__))
 
     @classmethod
     def count_by(cls, where, *args):
